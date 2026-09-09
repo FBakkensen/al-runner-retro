@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reproduce the retrospective on your side: the prompt</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root { color-scheme:light; --bg:#f7f4ee; --surface:#fdfcf9; --surface2:#f1ede4; --border:rgba(30,26,20,0.10); --border-strong:rgba(30,26,20,0.22); --text:#1c1917; --text-dim:#6b655c; --accent:#1e3a5f; --accent-dim:rgba(30,58,95,0.08); --gold:#b8892b;
+  --font-head:"Instrument Serif",Georgia,serif; --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --font-mono:"JetBrains Mono",Consolas,monospace; }
+@media (prefers-color-scheme: dark) { :root { color-scheme:dark; --bg:#171512; --surface:#1e1b17; --surface2:#26221d; --border:rgba(255,250,240,0.09); --border-strong:rgba(255,250,240,0.22); --text:#ede8df; --text-dim:#a49d92; --accent:#8fb0d9; --accent-dim:rgba(143,176,217,0.10); --gold:#d4a73a; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); background-image:radial-gradient(ellipse at 20% -10%, var(--accent-dim), transparent 55%); color:var(--text); font-family:var(--font-body); font-size:15px; line-height:1.55; padding:32px 40px 80px; }
+.wrap { max-width:980px; margin:0 auto; }
+a { color:var(--accent); text-decoration:none; border-bottom:1px solid var(--border-strong); }
+h1 { font-family:var(--font-head); font-weight:400; font-size:44px; line-height:1.05; margin:0 0 10px; }
+h1 em { font-style:italic; color:var(--accent); }
+.lead { font-size:16px; color:var(--text-dim); max-width:70ch; margin:0 0 18px; }
+.bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 14px; }
+button { font:inherit; font-family:var(--font-mono); font-size:12px; border:1px solid var(--accent); background:var(--accent); color:#fff; padding:7px 14px; border-radius:7px; cursor:pointer; }
+button.alt { background:var(--surface); color:var(--text); border-color:var(--border-strong); }
+.note { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); }
+.box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:4px 0; box-shadow:0 10px 30px -18px rgba(0,0,0,0.35); }
+pre { margin:0; padding:18px 22px; font-family:var(--font-mono); font-size:12.5px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; max-height:none; }
+.callout { border:1px solid var(--border-strong); border-left:4px solid var(--gold); background:var(--surface); border-radius:0 10px 10px 0; padding:12px 16px; font-size:14px; margin:0 0 18px; }
+@media (max-width:700px) { body { padding:18px 16px 60px; } h1 { font-size:32px; } }
+</style></head>
+<body><div class="wrap">
+<h1>Reproduce this retrospective <em>on your side</em></h1>
+<p class="lead">The GitHub half of the data is the same for both operators; only the session transcripts differ. Paste the prompt below into a fresh Claude Code session opened in your clone of the runner repo, fill in the two placeholders at the top, and it produces the same kind of report over your own transcripts. <a href="./">Back to the report</a>.</p>
+<div class="callout">Two placeholders to fill before running: your GitHub login, and the names of your agent pools. Everything else runs as written. It is read-only: nothing is filed, labelled, commented or pushed.</div>
+<div class="bar"><button id="copy">Copy prompt</button><a class="alt" href="prompt-for-maintainer.md" download><button class="alt" type="button">Download as .md</button></a><span class="note" id="status">2050 words</span></div>
+<div class="box"><pre id="prompt">You are running a retrospective on the multi-agent workflow around
+`StefanMaron/BusinessCentral.AL.Runner` and `StefanMaron/BusinessCentral.AL.Language.Tests`.
+Two operators run independent agent loops that communicate only through GitHub issues and PRs. My
+login is `&lt;YOUR_GITHUB_LOGIN&gt;`; my agent pools are `&lt;e.g. impl-N, stma-auto-N, orchestrator, coord&gt;`.
+The other operator is `FBakkensen` with pool `fbk-N`. The `claude` / `claude[bot]` logins are mine.
+
+## Scope, already decided (do not re-ask)
+
+- **Window:** 2026-08-10 to 2026-09-09 (matching the first report so the numbers are comparable).
+- **Audience:** both operators, public-safe. No employer names, hostnames, local paths, email
+  addresses, or quoted user messages anywhere in the output. Refer to people by GitHub login or role.
+- **Dimensions, in priority order:** (e) quality of what merged, (a) throughput and outcome,
+  (b) coordination over the GitHub bus, (c) rule effectiveness, (d) agent cost and behaviour.
+- **Output:** one self-contained single-page HTML report, written outside the repo. Nothing filed,
+  labelled, commented, edited, or pushed on GitHub or in the repo. This is a read-only audit.
+- **Deliver, don&#x27;t ask.** Make routine judgment calls yourself. Stop only if `gh` cannot reach
+  github.com.
+
+## Step 0: preflight
+
+```bash
+export GH_HOST=github.com
+gh api user --jq .login            # must print your login
+gh api rate_limit --jq &#x27;.resources.core.remaining&#x27;
+python3 --version                  # 3.11+
+mkdir -p ~/tmp/al-runner-retro/{raw,derived,private} &amp;&amp; cd ~/tmp/al-runner-retro
+```
+
+Prefix every `gh` call with `GH_HOST=github.com` if your default host differs. Filter the `mise`
+banner out of any `$(...)` capture. Never use bare `grep -E` in this repo (shell-function trap);
+use `command grep` or python.
+
+## Step 1: pull one read-only snapshot to disk, then analyse only the snapshot
+
+```bash
+R=StefanMaron/BusinessCentral.AL.Runner; C=StefanMaron/BusinessCentral.AL.Language.Tests
+S=2026-08-10T00:00:00Z
+gh api --paginate &quot;repos/$R/issues?state=all&amp;since=$S&amp;per_page=100&quot; --jq &#x27;.[]&#x27; &gt; raw/runner_issues.jsonl
+gh api --paginate &quot;repos/$R/issues/comments?since=$S&amp;per_page=100&quot;  --jq &#x27;.[]&#x27; &gt; raw/runner_comments.jsonl
+gh api --paginate &quot;repos/$C/issues?state=all&amp;since=$S&amp;per_page=100&quot; --jq &#x27;.[]&#x27; &gt; raw/corpus_issues.jsonl
+gh api --paginate &quot;repos/$C/issues/comments?since=$S&amp;per_page=100&quot;  --jq &#x27;.[]&#x27; &gt; raw/corpus_comments.jsonl
+# repo-wide issue events, newest first, page until created_at &lt; 2026-08-10 (~150 pages)
+# PRs via GraphQL, ordered UPDATED_AT desc, stop when updatedAt &lt; window: fields
+#   number title state isDraft createdAt updatedAt closedAt mergedAt author.login headRefName
+#   baseRefName additions deletions changedFiles mergeCommit.oid mergedBy.login bodyText
+#   labels(30) closingIssuesReferences(20){number state} files(100){path additions deletions}
+#   reviews(30){author state submittedAt} comments.totalCount commits.totalCount
+#   timelineItems(100, LABELED/UNLABELED/CLOSED/REOPENED/MERGED/HEAD_REF_FORCE_PUSHED)
+# for both repos -&gt; raw/runner_prs.jsonl, raw/corpus_prs.jsonl
+git fetch origin main --quiet
+git log origin/main --since=2026-08-10 --format=&#x27;%H%x09%ad%x09%an%x09%s&#x27; --date=iso-strict &gt; raw/gitlog_main.tsv
+git log origin/main --since=2026-08-10 --name-only --format=&#x27;%x00%H&#x27; &gt; raw/gitlog_files.txt
+git log origin/main --since=2026-08-10 --numstat --format=&#x27;%x00%H%x09%ad%x09%s&#x27; --date=iso-strict -- .claude CLAUDE.md docs &gt; raw/governance_log.txt
+# per week: bytes of .claude/rules/*.md + CLAUDE.md (auto-loaded every turn) and of agents+skills+commands
+for w in 2026-08-10 2026-08-17 2026-08-24 2026-08-31 2026-09-07 2026-09-09; do
+  c=$(git rev-list -1 --before=&quot;${w}T00:00:00&quot; origin/main)
+  printf &#x27;%s\t%s\t%s\t%s\n&#x27; &quot;$w&quot; &quot;${c:0:8}&quot; \
+    &quot;$(git ls-tree -r -l $c -- .claude/rules CLAUDE.md | awk &#x27;{s+=$4} END{print s+0}&#x27;)&quot; \
+    &quot;$(git ls-tree -r -l $c -- .claude/agents .claude/skills .claude/commands | awk &#x27;{s+=$4} END{print s+0}&#x27;)&quot;
+done &gt; raw/governance_size.tsv
+git ls-remote --heads origin &#x27;refs/heads/agent/*&#x27; | awk &#x27;{print $2}&#x27; &gt; raw/agent_branches.txt
+```
+
+Expected sizes for the same window on 2026-09-09: 2,423 runner issues+PRs, 1,458 comments,
+14,800 events, 829 runner PRs, 271 corpus PRs, 967 commits. If yours differ by more than a few
+percent, the window or the pagination is wrong; fix before analysing.
+
+## Step 2: extract structured facts from YOUR session transcripts (one python script)
+
+Transcripts are JSONL under `~/.claude/projects/&lt;encoded-repo-path&gt;/*.jsonl`; each session has a
+`&lt;session-id&gt;/subagents/*.jsonl` directory with a `.meta.json` per subagent (`agentType`,
+`description`). Record types that matter: `assistant` (message.usage tokens, message.model,
+content[].tool_use with `name` and `input`), `user` (a tool result if `toolUseResult` is present,
+otherwise a human-typed or slash-command message), `system` with `subtype: turn_duration`,
+`cost-state` (totalCostUSD, modelUsage; present in only some sessions and a point-in-time snapshot),
+`pr-link`, `ai-title`.
+
+Emit `derived/sessions.json` and `derived/subagents.json` with, per transcript: title, first/last
+timestamp, harness `version`, assistant message count, tool calls by name, Bash/PowerShell commands
+classified (read/search = grep|rg|sed|cat|head|tail|find|ls|wc as primary verb; gh; git; dotnet;
+al-runner; python; tools/; cd-only; other), `Agent` spawns (subagent_type, description, prompt
+length), typed human messages as **counts and lengths only**, turn durations, usage token sums,
+cost-state, pr-links, tool-result errors. Write the human message texts to
+`private/human_messages.jsonl` for classification only; that file is never shared and never quoted.
+
+Also run the repo&#x27;s own `tools/agent-cost.py &lt;tasks-dir&gt;` on at least one pre-2026-09-02 and one
+post-2026-09-07 task directory, so the code-navigation guidance gets a before/after with the same
+classifier CLAUDE.md quotes.
+
+## Step 3: five analyses, run as parallel subagents against the snapshot
+
+Give each subagent the file inventory, the operator mapping, and this output contract, and have it
+write `derived/findings_&lt;letter&gt;.json`:
+
+```json
+{&quot;dimension&quot;: &quot;&lt;letter&gt; &lt;name&gt;&quot;,
+ &quot;method&quot;: &quot;2-5 sentences: what was measured, how, and what could NOT be measured&quot;,
+ &quot;metrics&quot;: [{&quot;name&quot;: &quot;...&quot;, &quot;value&quot;: &quot;...&quot;, &quot;unit&quot;: &quot;...&quot;, &quot;note&quot;: &quot;...&quot;}],
+ &quot;findings&quot;: [{&quot;id&quot;: &quot;&lt;letter&gt;-N&quot;, &quot;title&quot;: &quot;&lt;=12 words&quot;, &quot;verdict&quot;: &quot;works|mixed|broken&quot;,
+   &quot;claim&quot;: &quot;one public-safe paragraph&quot;, &quot;evidence&quot;: [&quot;#1234&quot;, &quot;PR #2345&quot;, &quot;corpus PR #12&quot;, &quot;sha abcdef12&quot;, &quot;count: 12 of 40&quot;],
+   &quot;confidence&quot;: &quot;high|medium|low&quot;, &quot;why_confidence&quot;: &quot;one sentence&quot;,
+   &quot;recommendation&quot;: &quot;concrete change to .claude/ governance, tools, or process; or &#x27;none&#x27;&quot;}],
+ &quot;tables&quot;: [{&quot;title&quot;: &quot;...&quot;, &quot;columns&quot;: [...], &quot;rows&quot;: [[...]]}]}
+```
+
+Rules for every subagent: every finding carries at least one issue/PR/SHA or a count with a
+denominator; a zero from a pattern the agent chose is not a finding until a second, differently
+shaped query confirms it; duplicate-`Closes` detection uses `closingIssuesReferences` **and** the
+issue number in `headRefName` (34 of 48 duplicate pairs were only visible through the branch name);
+python over the snapshot, batched, not twenty greps; foreground only; read-only.
+
+**(e) Quality of what merged.** Sample ~30 merged PRs stratified by pool and week; `git show` the
+squash merge commit; classify the proving test as proves / weak / none (would it pass if the fix
+returned a default?). Population: code-touching merged PRs that touch a test path. Corpus linkage:
+re-derive AL-observable from the gate&#x27;s own path list (`AlRunner/Patches/`, `Rewriters/`,
+`Infrastructure/NclCecilRewrite*`, `BcCompiler*`, `BcAssembler.cs`); resolve every `Corpus-PR:` to
+`raw/corpus_prs.jsonl` and report runner PRs merged **before** the corpus PR merged and runner PRs
+whose corpus PR **closed unmerged**; read every `Corpus-NA:` reason. Hot-file churn: consecutive
+merges on one file within 48 h / 6 h; strict follow-up/regression references vs loose keyword hits;
+real reverts (verify every candidate). Expectations manifest: known-gap entries added vs removed
+over time; PRs adding an entry while changing patch code. `main` health: floor-run failures,
+cancelled-superseded matrix runs, &quot;main is red&quot; issues. Review effectiveness: PRs with a review
+comment before merge, by date; pushes after the first review comment; header styles used.
+
+**(a) Throughput.** Opened/merged/closed-unmerged per week by pool (branch prefix cross-checked
+with author login); cycle time median/p90; issues opened/closed per week and the open backlog at
+each week end; issues closed by a merged PR vs otherwise; merged PRs with no closing reference and
+whether they carry the `No linked issue:` hatch; multi-close PRs; force-push share; formal GitHub
+review objects; corpus PR throughput and who merges; merge hour-of-day histogram; issue author →
+PR author matrix (who fixes whose filings).
+
+**(b) Coordination.** Issues targeted by 2+ PRs and the subset that were genuinely concurrent
+(both open at once); gap between starts; same- vs cross-operator. Claim protocol: in-progress label
+→ PR within 24 h; issues relabelled to a different agent; unlabel events by a different login than
+applied; open in-progress issues and their age; closed issues still carrying `status:`/`agent:`
+labels; contradictory labels; ready-queue age distribution and who filed it. Cross-operator comment
+threads and reply latency. Merged PRs whose branch names an issue they never declared (and whether
+that issue is still open). Distinct `agent:` labels and max concurrent open PRs under one label.
+Agent branches with no PR. Closed-unmerged PRs and their stated reasons. Self-identification in
+agent comments before/after `public-posting-approval.md`&#x27;s rule (sha abdac823). Corpus side: merge
+latency, `run-nightly-windows` usage, cross-operator comments.
+
+**(c) Rule effectiveness.** For each file in `.claude/rules`, `.claude/agents`, `.claude/skills`,
+`CLAUDE.md`: birth date, incidents cited (resolve issue numbers to dates), recurrences after birth
+(the files admit some themselves), what finally stopped the class (prose / tool / required CI gate /
+nothing yet). Count each incident class before vs after the rule in issues, comments, PR bodies,
+commit subjects and structural queries (reopen events after a merge-close; ci-skip strings; CHANGELOG
+touches; simultaneously-open PRs closing one issue; issues titled against ci-wait.py / preflight.py /
+pr-body.py by date). Governance growth per week; share of auto-loaded bytes in incident-narrative
+paragraphs (date, `#NNNN`, &quot;Measured&quot;, incident verb); number of files stating each of 20 sampled
+instructions; direction flips inside the window with dates and whether the superseded text is still
+on `main`; governance commits whose subject corrects earlier guidance.
+
+**(d) Cost and behaviour (your transcripts).** Cost-state coverage and a usage-based estimate;
+share by model tier, by subagent type, cache-read share; rough cost per merged PR from your pools.
+Tool profile per subagent type: calls median/p90, over-200 count, grep-family share (primary verb
+and contains-anywhere), navigation-tool commands (`context-pack`, `lsp-query`, `graphify`; also
+`Skill find-code` and `LSP` tool calls), bare-`cd` share by harness version, CI-polling share
+before/after the never-block-on-CI change (impl-agent.md 2026-09-05, ci-verdicts.md sha 96b15f0e
+2026-09-07). Turns over 10/30/60 min and what they are. Impl agents that never ran `gh pr create`
+and why. Typed human messages by week and category (new task / answer / correction / status /
+approval / rule statement / handoff / other) and the correction **themes** that recur 3+ times, in
+neutral wording, counts only. Spawns, brief length over time, subagent transcript size over time,
+`SendMessage` to subagent vs to a peer session.
+
+## Step 4: reconcile before rendering
+
+- Cross-check the dimensions against each other; where two measured the same thing with different
+  instruments, cite the finer one and footnote the other. Name the basis behind any remaining
+  disagreement (created-in-window vs updated-in-window; branch prefix vs author login).
+- Spot-check the five claims a reader will push back on hardest by re-querying `raw/` directly.
+- Do not credit a rule for behaviour that predates it: check daily counts around the rule&#x27;s birth.
+- Run a public-safety scan on the **final HTML**, not on the JSON: a blocklist of your own private
+  names/hosts/paths/emails, and every 30-character substring of `private/human_messages.jsonl`.
+  Path fragments that also occur in the repo are fine; prose is not.
+
+## Step 5: the page
+
+Self-contained HTML in `~/.agent/diagrams/`, sections in the order e, a, b, c, d. Lead with a
+summary: five &quot;working well&quot;, five &quot;going wrong&quot;, stat tiles, one chart with three panels on a
+shared time axis (weekly merges stacked by pool; open issues at week end; auto-loaded governance KB)
+with dashed markers at 08-27, 08-31, 09-05, 09-06, 09-07, 09-08. Then ranked changes across all
+dimensions, each tagged with the finding IDs that back it and where it lands (`.claude/`, `tools/`,
+or a maintainer-owned workflow). Then each dimension: method, metrics, finding cards filterable by
+verdict, tables. Close with method and caveats (GraphQL 100-file cap, one commit node per PR,
+same-login collisions invisible in events, days of post-change data for the newest rules, cost
+figures are one operator&#x27;s floor plus an estimate). Link `#N` to the runner repo, `corpus PR #N`
+to the corpus repo, `sha` to the commit. Inline SVG for the chart, no chart library; a table view
+under the chart. Validate the palette for both light and dark surfaces. Open the page in a browser
+and look at it before calling it done.
+
+## Numbers from the first run, for comparison
+
+827 PRs opened / 796 merged / 0.8 h median; 1,107 issues opened / 872 closed; open issues 8 → 237
+(08-24 → 09-09); 407 merges in the week of 08-31; 625 of 638 code PRs touch a test path; 25/2/3
+proves/weak/none in a 30-PR sample; 209 of 335 pre-gate AL-observable PRs had no corpus reference,
+94 of 95 post-gate declare one; 4 post-gate runner PRs merged with the corpus PR still open; 4
+merged runner PRs cite corpus PRs that closed unmerged; 8 genuine PR collisions, 2 after
+check-open-prs landed; 110 distinct `agent:` labels; 561 of 872 closed issues still in-progress;
+31 merged PRs with an undeclared branch issue, 12 open; auto-loaded governance 17 KB → 133 KB, 35%
+narrative, 4.35 files per instruction, 8 direction flips, 18 of 87 governance commits correcting
+earlier guidance; other operator&#x27;s subagents: 93% Bash, navigation tools in 45 of 11,418 commands,
+impl-agent median 116 calls, pure CI waiting 7.2% → 1.4% after the never-block rule.
+
+The other operator&#x27;s report is a file, not a repo artifact; ask them for it and put the two side by
+side. Where your numbers on the shared GitHub data differ from the ones above, that is a counting
+basis difference to name, not an error to hide.</pre></div>
+</div>
+<script>
+document.getElementById('copy').addEventListener('click',async()=>{ const t=document.getElementById('prompt').textContent; try{ await navigator.clipboard.writeText(t); document.getElementById('status').textContent='copied to clipboard'; }catch(e){ const r=document.createRange(); r.selectNodeContents(document.getElementById('prompt')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.getElementById('status').textContent='selected; press Ctrl+C'; } });
+</script></body></html>
