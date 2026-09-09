@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposals from the retrospective, pinned to the workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root { color-scheme:light; --bg:#f7f4ee; --surface:#fdfcf9; --surface2:#f1ede4; --border:rgba(30,26,20,0.10); --border-strong:rgba(30,26,20,0.22); --text:#1c1917; --text-dim:#6b655c; --accent:#1e3a5f; --accent-dim:rgba(30,58,95,0.08); --gold:#b8892b;
+  --font-head:"Instrument Serif",Georgia,serif; --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --font-mono:"JetBrains Mono",Consolas,monospace; }
+@media (prefers-color-scheme: dark) { :root { color-scheme:dark; --bg:#171512; --surface:#1e1b17; --surface2:#26221d; --border:rgba(255,250,240,0.09); --border-strong:rgba(255,250,240,0.22); --text:#ede8df; --text-dim:#a49d92; --accent:#8fb0d9; --accent-dim:rgba(143,176,217,0.10); --gold:#d4a73a; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); background-image:radial-gradient(ellipse at 20% -10%, var(--accent-dim), transparent 55%); color:var(--text); font-family:var(--font-body); font-size:15px; line-height:1.55; padding:32px 40px 80px; }
+.wrap { max-width:1100px; margin:0 auto; }
+a { color:var(--accent); text-decoration:none; border-bottom:1px solid var(--border-strong); }
+h1 { font-family:var(--font-head); font-weight:400; font-size:44px; line-height:1.05; margin:0 0 10px; } h1 em { font-style:italic; color:var(--accent); }
+.lead { font-size:16px; color:var(--text-dim); max-width:75ch; margin:0 0 18px; }
+.diagram-shell { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; margin:0 0 26px; display:flex; justify-content:center; }
+.mermaid { width:100%; max-width:760px; }
+.stage { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 12px 12px 0; padding:14px 18px; margin:0 0 14px; }
+.stage header { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.sid { font-family:var(--font-mono); font-size:11px; color:var(--gold); border:1px solid var(--gold); border-radius:3px; padding:1px 7px; }
+.stage h3 { font-family:var(--font-head); font-weight:400; font-size:26px; margin:0; }
+.who { color:var(--text-dim); font-size:13px; }
+.stage p { margin:8px 0; font-size:14px; } .stage ul { margin:4px 0 8px; padding-left:20px; font-size:14px; }
+.dim { color:var(--text-dim); } .measure { background:var(--accent-dim); border-radius:8px; padding:8px 12px; }
+.ref { font-family:var(--font-mono); font-size:11px; border:1px solid var(--border-strong); border-radius:4px; padding:0 5px; color:var(--text-dim); margin-right:3px; }
+.refs { font-size:12px; color:var(--text-dim); margin-top:6px; }
+.callout { border:1px solid var(--border-strong); border-left:4px solid var(--gold); background:var(--surface); border-radius:0 10px 10px 0; padding:12px 16px; font-size:14px; margin:0 0 18px; }
+@media (max-width:700px) { body { padding:18px 16px 60px; } h1 { font-size:32px; } }
+</style></head>
+<body><div class="wrap">
+<h1>Proposals, pinned to <em>the loop every agent runs</em></h1>
+<p class="lead">The retrospective's changes grouped by workflow stage, so each can be judged on its own: merging only one upgrades that stage and leaves the others as they are today. Workflow changes (rules, agents, skills, hooks, tools) arrive as one PR per stage from the reporting side. Code changes are issues for the maintainer, labelled <code>status: blocked</code> so no loop picks them up. <a href="./">Back to the report</a> · <a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3673">tracking issue #3673</a>.</p>
+<div class="callout">Reading order: the box is the stage, the agent that runs it is under the name, the findings are the evidence, the PR or issues are the proposal, and the last line is the number that should move afterwards.</div>
+<div class="diagram-shell"><pre class="mermaid">
+flowchart TD
+  S1["S1 File and triage<br/><small>triager · filing agents</small>"] --> S2["S2 Impl-agent run<br/><small>claim · implement · hand back</small>"]
+  S2 --> S3["S3 Review<br/><small>reviewer · second model</small>"]
+  S3 --> S4["S4 Merge and clean up<br/><small>orchestrator · coordinator</small>"]
+  S4 -->|"closes issues, files new gaps"| S1
+  S5["S5 The rule set every stage loads<br/><small>.claude/rules · CLAUDE.md</small>"] -.-> S1
+  S5 -.-> S2
+  S5 -.-> S3
+  S5 -.-> S4
+  click S1 "#S1"
+  click S2 "#S2"
+  click S3 "#S3"
+  click S4 "#S4"
+  click S5 "#S5"
+</pre></div>
+<article class="stage" id="S1"><header><span class="sid">S1</span><h3>File and triage</h3><span class="who">triager, any agent filing an issue</span></header>
+<p class="prob"><b>What the data shows.</b> Open issues went 8 to 237 in two weeks; 115 are ready, 39 older than a week, 113 of 115 filed by the maintainer&#x27;s loops; five issues were filed three times by API-retry loops; drift fixes were opened by several loops at once.</p>
+<p><b>Workflow PR.</b> Idempotent filing (search by exact title before create, never retry a create on timeout blind); ready-queue age histogram in every cycle summary; oldest-first when nothing else orders the queue; one owner for expectation-drift fixes. <span class="dim">Files: .claude/skills/orchestrating-a-session, .claude/skills/autonomous-cycle, .claude/agents/triager.md, tools/ (queue-age script + test)</span></p>
+<p><b>Status:</b> <span class="dim">PR not yet opened</span></p>
+
+<p class="measure"><b>What should move.</b> Ready-queue median age and count of issues older than 7 days; duplicate filings per week (today: 5 retry duplicates, 18 closed as duplicate in 30 days).</p>
+<div class="refs">Findings: <a class="ref" href="./#a-2">a-2</a> <a class="ref" href="./#b-10">b-10</a> <a class="ref" href="./#b-12">b-12</a> <a class="ref" href="./#b-21">b-21</a> <a class="ref" href="./#b-17">b-17</a></div></article><article class="stage" id="S2"><header><span class="sid">S2</span><h3>The impl-agent run: claim, implement, hand back</h3><span class="who">impl agents, hooks, preflight</span></header>
+<p class="prob"><b>What the data shows.</b> Every PR collision began 6-70 minutes before the first PR existed, which the open-PR check cannot see; a shared worktree path let one loop push onto another loop&#x27;s branch; impl agents run a median 116 tool calls (15 of 64 over 200) and use the navigation tools in 45 of 11,418 shell commands; git stash and backgrounded CI waits are prose-only rules.</p>
+<p><b>Workflow PR.</b> Draft PR with Closes #N as the first act after claiming; open-PR lookup includes drafts; worktrees and scratch paths keyed on identity plus session; preflight refuses a worktree whose branch heads someone else&#x27;s open PR; a call budget with a checkpoint hand-back; PreToolUse hooks that reject git stash, backgrounded CI waits, and bare grep over AlRunner/**/*.cs in impl and reviewer contexts. <span class="dim">Files: .claude/agents/impl-agent.md, .claude/rules/check-open-prs-before-claiming.md, .claude/hooks/*, tools/preflight.py (+ tests)</span></p>
+<p><b>Status:</b> <span class="dim">PR not yet opened</span></p>
+<p><b>Code proposals for the maintainer (issues, blocked):</b></p><ul><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3675">#3675</a> generate tests/expectations/count-baseline in CI instead of committing it per PR</li><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3676">#3676</a> split RecordPatches.cs and MockTestPage.cs into partials the way Program.cs has been</li></ul>
+<p class="measure"><b>What should move.</b> Concurrent PR collisions per month (today: 8); impl-agent median calls and over-200 count; navigation-tool share of shell commands; stash/backgrounding incidents (today: 0 and 3 recurrences).</p>
+<div class="refs">Findings: <a class="ref" href="./#b-2">b-2</a> <a class="ref" href="./#b-3">b-3</a> <a class="ref" href="./#b-5">b-5</a> <a class="ref" href="./#d-5">d-5</a> <a class="ref" href="./#d-8">d-8</a> <a class="ref" href="./#c-3">c-3</a> <a class="ref" href="./#c-11">c-11</a> <a class="ref" href="./#d-13">d-13</a></div></article><article class="stage" id="S3"><header><span class="sid">S3</span><h3>Review</h3><span class="who">reviewer agent, second-model review</span></header>
+<p class="prob"><b>What the data shows.</b> 1 of 796 merged PRs has a GitHub review object; review comments use at least five header styles so no verdict can be extracted and a fix-first can be armed for auto-merge by mistake; two thirds of reviewer spend re-confirms already mergeable PRs.</p>
+<p><b>Workflow PR.</b> Every reviewer comment ends with one fixed line, Verdict: MERGE | FIX-FIRST | HOLD (reason), posted through the review API; a cheap arm-check (merge-tree, ci-wait, linkage state, count baseline) split from the full review, recorded in the comment; an optional second-model pass with the same rubric and structured output. <span class="dim">Files: .claude/agents/reviewer.md, tools/ (arm-check script + verdict parser + tests)</span></p>
+<p><b>Status:</b> <span class="dim">PR not yet opened</span></p>
+
+<p class="measure"><b>What should move.</b> Share of merged PRs with a parseable verdict before merge (today: 0 of 796 via API); reviewer output tokens per merged PR.</p>
+<div class="refs">Findings: <a class="ref" href="./#a-7">a-7</a> <a class="ref" href="./#e-11">e-11</a> <a class="ref" href="./#e-12">e-12</a></div></article><article class="stage" id="S4"><header><span class="sid">S4</span><h3>Merge and clean up</h3><span class="who">orchestrator, coordinator</span></header>
+<p class="prob"><b>What the data shows.</b> 4 post-gate runner PRs merged while the cited corpus PR was still open and 4 cite corpus PRs that closed unmerged; 561 of 872 closed issues still carry status: in-progress; 5 of 8 in-progress issues sit behind a merged partial PR; the coordinator reads CI one PR at a time (133 ci-wait plus 121 gh run list calls in five sessions).</p>
+<p><b>Workflow PR.</b> Merge pass resolves each Corpus-PR line to its state and refuses to arm while it is open or closed unmerged; strips status and agent labels on close; flips &#x27;Part of #N&#x27; issues back to ready with a comment; one batched CI sweep read per cycle; coordinator session rotated after a fixed number of cycles. <span class="dim">Files: .claude/agents/orchestrator.md, .claude/skills/orchestrating-a-session, .claude/skills/autonomous-cycle, tools/ (sweep-read + corpus-state check + tests)</span></p>
+<p><b>Status:</b> <span class="dim">PR not yet opened</span></p>
+<p><b>Code proposals for the maintainer (issues, blocked):</b></p><ul><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3674">#3674</a> refuse to arm auto-merge while the cited corpus PR is open or closed unmerged</li><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3677">#3677</a> path-based required checks for CHANGELOG.md and the tests/al-language submodule</li><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3678">#3678</a> gate an undeclared Closes when the branch names an issue, and strip status/agent labels on issue close</li><li><a href="https://github.com/StefanMaron/BusinessCentral.AL.Runner/issues/3679">#3679</a> debounced floor run after merges, and the floor verdict shown next to the PR verdict</li></ul>
+<p class="measure"><b>What should move.</b> Runner PRs merged before their corpus PR (today: 4 of 68 post-gate); closed issues still labelled in-progress (today: 64%); CI-read commands per cycle.</p>
+<div class="refs">Findings: <a class="ref" href="./#e-5">e-5</a> <a class="ref" href="./#b-7">b-7</a> <a class="ref" href="./#b-8">b-8</a> <a class="ref" href="./#b-20">b-20</a> <a class="ref" href="./#d-10">d-10</a> <a class="ref" href="./#d-21">d-21</a> <a class="ref" href="./#e-8">e-8</a></div></article><article class="stage" id="S5"><header><span class="sid">S5</span><h3>The rule set every stage loads</h3><span class="who">everyone; .claude/rules and CLAUDE.md</span></header>
+<p class="prob"><b>What the data shows.</b> Auto-loaded rules plus CLAUDE.md grew 17 KB to 133 KB in 30 days; 35% of it is dated incident narrative; each instruction appears in 4.35 files; 8 direction reversals, 3 the same day; 18 of 87 governance commits correct earlier guidance; one stale contradiction is still on main.</p>
+<p><b>Workflow PR.</b> Apply the repo&#x27;s own claim-plus-citation-plus-trap standard (#3402) to .claude/: incident narrative moves to docs/incidents/&lt;rule&gt;.md with a pointer; one canonical home per instruction, restatements fail a drift test; a rule states a direction only with two independent instances or a measurement; governance tools land with tests before their prose. Worked in full on the rules; skills and agents link instead of restating. <span class="dim">Files: .claude/rules/*, CLAUDE.md, docs/incidents/*, tools/test_*.py</span></p>
+<p><b>Status:</b> <span class="dim">PR not yet opened</span></p>
+
+<p class="measure"><b>What should move.</b> Auto-loaded bytes (today 133 KB; target under 50 KB); narrative share; files per instruction; reversals per month.</p>
+<div class="refs">Findings: <a class="ref" href="./#c-8">c-8</a> <a class="ref" href="./#c-9">c-9</a> <a class="ref" href="./#c-10">c-10</a> <a class="ref" href="./#c-16">c-16</a> <a class="ref" href="./#c-15">c-15</a> <a class="ref" href="./#c-17">c-17</a></div></article>
+</div>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({ startOnLoad:true, securityLevel:"loose", theme:"base", themeVariables:{ fontFamily:"IBM Plex Sans, sans-serif", fontSize:"15px", primaryColor: dark?"#26221d":"#f1ede4", primaryTextColor: dark?"#ede8df":"#1c1917", primaryBorderColor:"#b8892b", lineColor: dark?"#a49d92":"#6b655c", secondaryColor: dark?"#1e1b17":"#fdfcf9", tertiaryColor: dark?"#1e1b17":"#fdfcf9" } });
+</script>
+</body></html>
